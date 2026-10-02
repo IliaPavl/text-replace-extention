@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>Замены текста</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div id="toast" hidden></div>
+    <div id="help-pop" hidden></div>
+
+    <section id="screen-folders">
+      <header class="topbar">
+        <div class="brand">
+          <img class="brand-icon" src="icons/icon48.png" alt="" />
+          <div>
+            <p class="brand-kicker" data-i18n="brand">Замены</p>
+            <h1 data-i18n="foldersTitle">Папки</h1>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <select id="locale" aria-label="Language"></select>
+        </div>
+      </header>
+
+      <details class="hint-box">
+        <summary class="settings-summary compact">
+          <span class="disclosure" aria-hidden="true"></span>
+          <span data-i18n="howItWorks">Как это работает</span>
+        </summary>
+        <p class="hint" data-i18n="foldersHint">
+          Каждая папка — свой набор замен. На странице применяются пары из всех папок.
+        </p>
+      </details>
+
+      <form id="folder-form" class="composer">
+        <input id="folder-name" type="text" maxlength="80" data-i18n-placeholder="folderNamePlaceholder" placeholder="Название папки" required />
+        <button type="submit" class="primary" data-i18n="createFolder">Создать</button>
+      </form>
+
+      <ul id="folder-list" class="card-list"></ul>
+
+      <details class="settings-box io-panel">
+        <summary class="settings-summary">
+          <span class="disclosure" aria-hidden="true"></span>
+          <span data-i18n="foldersIoTitle">Импорт и экспорт</span>
+          <button type="button" class="help-btn" data-help="helpData">?</button>
+        </summary>
+        <div class="btn-stack io-stack">
+          <button type="button" id="import-replace" data-i18n="importReplace">Импорт с заменой всего</button>
+          <button type="button" id="import-append" data-i18n="importAppend">Импорт без замены</button>
+          <button type="button" id="export-all" class="primary" data-i18n="exportAll">Экспортировать всё</button>
+        </div>
+        <input id="import-file" type="file" accept="application/json,.json" hidden />
+      </details>
+
+      <details class="settings-box">
+        <summary class="settings-summary">
+          <span class="disclosure" aria-hidden="true"></span>
+          <span data-i18n="settingsSection">Настройки</span>
+        </summary>
+
+        <div class="settings-block">
+          <p class="panel-title">
+            <span id="match-global-title">Сопоставление по умолчанию</span>
+            <button type="button" class="help-btn" data-help="helpMatchGlobal">?</button>
+          </p>
+          <div id="global-match-editor" class="match-editor"></div>
+          <div class="btn-grid match-io">
+            <button type="button" id="export-match" data-i18n="exportMatch">Выгрузить правила</button>
+            <button type="button" id="import-match" data-i18n="importMatch">Импорт правил</button>
+          </div>
+          <input id="import-match-file" type="file" accept="application/json,.json" hidden />
+        </div>
+
+        <div class="settings-block">
+          <p class="panel-title">
+            <span data-i18n="settingsTitle">Интерфейс</span>
+            <button type="button" class="help-btn" data-help="helpUiSettings">?</button>
+          </p>
+          <div class="btn-grid">
+            <button type="button" id="export-settings" data-i18n="exportSettings">Выгрузить настройки</button>
+            <button type="button" id="import-settings" data-i18n="importSettings">Импорт настроек</button>
+          </div>
+          <input id="import-settings-file" type="file" accept="application/json,.json" hidden />
+        </div>
+
+        <div class="settings-block">
+          <p class="panel-title" data-i18n="storageSummary">Где хранятся данные</p>
+          <p class="storage" id="storage-info"></p>
+        </div>
+      </details>
+    </section>
+
+    <section id="screen-pairs" hidden>
+      <header class="topbar folder-topbar">
+        <div class="brand">
+          <button type="button" id="back" class="ghost" data-i18n="backFolders">← Папки</button>
+          <h1 id="folder-title">Папка</h1>
+        </div>
+        <div class="folder-toolbar">
+          <label class="switch">
+            <input id="folder-auto" type="checkbox" checked />
+            <span class="switch-ui" aria-hidden="true"></span>
+            <span data-i18n="autoApply">Автозамена</span>
+            <button type="button" class="help-btn" data-help="helpAuto">?</button>
+          </label>
+          <button type="button" id="scan" class="primary" data-i18n="scan">Сканировать</button>
+          <button type="button" id="restore" data-i18n="restore">Как было</button>
+        </div>
+      </header>
+
+      <form id="pair-form" class="panel form-card">
+        <label>
+          <span data-i18n="sourceText">Исходный текст</span>
+          <textarea id="from" rows="2" required data-i18n-placeholder="sourcePlaceholder" placeholder="Ли Кэ, Вэй, Лянь Хуа Ган"></textarea>
+        </label>
+        <label>
+          <span data-i18n="replacement">Замена</span>
+          <textarea id="to" rows="2" data-i18n-placeholder="replacementPlaceholder" placeholder="На что заменить"></textarea>
+        </label>
+        <div class="mode-row">
+          <div class="mode-switch" role="group">
+            <button type="button" id="mode-fuzzy" class="active" data-mode="fuzzy" data-i18n="modeFuzzy">Сопоставление</button>
+            <button type="button" id="mode-exact" data-mode="exact" data-i18n="modeExact">Точное совпадение</button>
+          </div>
+          <button type="button" class="help-btn" data-help="helpMode">?</button>
+        </div>
+        <input type="hidden" id="edit-id" />
+        <input type="hidden" id="pair-mode" value="fuzzy" />
+        <div class="composer">
+          <button type="submit" class="primary grow" id="save" data-i18n="addPair">Добавить пару</button>
+          <button type="button" id="cancel" hidden data-i18n="cancel">Отмена</button>
+        </div>
+      </form>
+
+      <details class="settings-box folder-match-box">
+        <summary class="settings-summary">
+          <span class="disclosure" aria-hidden="true"></span>
+          <span class="settings-summary-text">
+            <span class="settings-kicker" data-i18n="settingsSection">Настройки</span>
+            <span data-i18n="matchSettingsFolder">Сопоставление этой папки</span>
+          </span>
+          <button type="button" class="help-btn" data-help="helpMatchFolder">?</button>
+        </summary>
+        <label class="check-row">
+          <input id="folder-match-inherit" type="checkbox" checked />
+          <span data-i18n="matchInherit">Брать общие правила</span>
+          <button type="button" class="help-btn" data-help="helpMatchFolder">?</button>
+        </label>
+        <div id="folder-match-editor" class="match-editor"></div>
+      </details>
+
+      <div class="search-row">
+        <input id="pair-search" type="search" data-i18n-placeholder="searchPlaceholder" placeholder="Искать по тексту, замене и режиму" />
+      </div>
+      <ul id="pair-list" class="card-list"></ul>
+    </section>
+
+    <script src="match.js"></script>
+    <script src="i18n.js"></script>
+    <script src="storage.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

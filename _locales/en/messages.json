@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "Replace Similar Text",
+    "description": "Extension name"
+  },
+  "extDescription": {
+    "message": "Fix names and terms that auto-translate gets wrong. Replace similar spellings yourself—no AI. Data stays on your device.",
+    "description": "Extension description (Chrome limit 132 characters)"
+  },
+  "extTitle": {
+    "message": "Replace Similar Text",
+    "description": "Toolbar tooltip"
+  }
+}
