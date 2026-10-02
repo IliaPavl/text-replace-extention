@@ -82,8 +82,57 @@ function folderById(id) {
   return state.folders.find((f) => f.id === id) || null;
 }
 
-async function persist() {
-  state = await TextReplaceStore.setState(state);
+let persistChain = Promise.resolve();
+
+function persist() {
+  const job = persistChain.then(() => TextReplaceStore.setState(state));
+  persistChain = job.then(
+    () => {},
+    () => {}
+  );
+  return job;
+}
+
+function liveFolder() {
+  return openFolderId ? folderById(openFolderId) : null;
+}
+
+let sessionChain = Promise.resolve();
+
+function runSession(fn) {
+  const job = sessionChain.then(fn, fn);
+  sessionChain = job.then(
+    () => {},
+    () => {}
+  );
+  return job;
+}
+
+async function enterFolder(id) {
+  await TextReplaceStore.setActiveFolderId(id);
+  try {
+    await sendToTab({ type: "ENTER_FOLDER", folderId: id });
+  } catch {
+    /* tab may not allow the script */
+  }
+}
+
+async function leaveFolder() {
+  await TextReplaceStore.setActiveFolderId(null);
+  try {
+    await sendToTab({ type: "LEAVE_FOLDER" });
+  } catch {
+    /* tab may not allow the script */
+  }
+}
+
+async function refreshOpenFolder() {
+  if (!openFolderId) return;
+  try {
+    await sendToTab({ type: "REFRESH_FOLDER", folderId: openFolderId });
+  } catch {
+    /* tab may not allow the script */
+  }
 }
 
 function setPairMode(mode) {
@@ -248,16 +297,18 @@ async function saveMatchFromEditor(source) {
   await persist();
 }
 
-function showFolders() {
+function showFolders(options) {
+  const leave = options?.leave !== false && openFolderId != null;
   openFolderId = null;
   foldersScreen.hidden = false;
   pairsScreen.hidden = true;
   applyStaticI18n();
   fillMatchEditors();
   renderFolders();
+  if (leave) void runSession(() => leaveFolder());
 }
 
-function showFolder(id) {
+function showFolder(id, options) {
   const folder = folderById(id);
   if (!folder) {
     showFolders();
@@ -270,9 +321,10 @@ function showFolder(id) {
   folderTitleEl.textContent = folder.name;
   document.getElementById("folder-auto").checked = folder.autoApply !== false;
   pairSearchEl.value = pairQuery;
-  resetPairForm();
+  if (!options?.keepForm) resetPairForm();
   fillMatchEditors();
   renderPairs(folder);
+  if (options?.enter !== false) void runSession(() => enterFolder(id));
 }
 
 function renderFolders() {
@@ -393,9 +445,14 @@ function renderPairs(folder) {
     badge.textContent = pair.mode === "exact" ? t("modeExact") : t("modeFuzzy");
     badge.title = pair.mode === "exact" ? t("modeFuzzy") : t("modeExact");
     badge.addEventListener("click", async () => {
-      pair.mode = pair.mode === "exact" ? "fuzzy" : "exact";
+      const current = liveFolder();
+      const item = current?.pairs.find((p) => p.id === pair.id);
+      if (!item) return;
+      item.mode = item.mode === "exact" ? "fuzzy" : "exact";
       await persist();
-      renderPairs(folder);
+      const fresh = liveFolder();
+      if (fresh) renderPairs(fresh);
+      await refreshOpenFolder();
     });
     body.append(from, to, badge);
     const actions = document.createElement("div");
@@ -418,9 +475,13 @@ function renderPairs(folder) {
     del.className = "danger iconish";
     del.textContent = t("delete");
     del.addEventListener("click", async () => {
-      folder.pairs = folder.pairs.filter((p) => p.id !== pair.id);
+      const current = liveFolder();
+      if (!current) return;
+      current.pairs = current.pairs.filter((p) => p.id !== pair.id);
       await persist();
-      renderPairs(folder);
+      const fresh = liveFolder();
+      if (fresh) renderPairs(fresh);
+      await refreshOpenFolder();
     });
     actions.append(edit, del);
     li.append(body, actions);
@@ -597,7 +658,8 @@ document.addEventListener(
 localeEl.addEventListener("change", async () => {
   state.locale = localeEl.value || "ru";
   await persist();
-  showFolders();
+  if (openFolderId && folderById(openFolderId)) showFolder(openFolderId, { keepForm: true, enter: false });
+  else showFolders({ leave: false });
 });
 
 document.getElementById("mode-fuzzy").addEventListener("click", () => setPairMode("fuzzy"));
@@ -622,7 +684,7 @@ folderForm.addEventListener("submit", async (e) => {
 
 pairForm.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const folder = folderById(openFolderId);
+  const folder = liveFolder();
   if (!folder) return;
   const from = fromEl.value.trim();
   const to = toEl.value;
@@ -637,7 +699,9 @@ pairForm.addEventListener("submit", async (e) => {
   }
   await persist();
   resetPairForm();
-  renderPairs(folder);
+  const fresh = liveFolder();
+  if (fresh) renderPairs(fresh);
+  await refreshOpenFolder();
 });
 
 cancelBtn.addEventListener("click", resetPairForm);
@@ -646,12 +710,12 @@ document.getElementById("scan").addEventListener("click", scanPage);
 document.getElementById("restore").addEventListener("click", restorePage);
 
 document.getElementById("folder-auto").addEventListener("change", async () => {
-  const folder = folderById(openFolderId);
+  const folder = liveFolder();
   if (!folder) return;
   folder.autoApply = document.getElementById("folder-auto").checked;
   await persist();
   try {
-    if (folder.autoApply) await sendToTab({ type: "RESUME_APPLY" });
+    await sendToTab({ type: folder.autoApply ? "RESUME_APPLY" : "PAUSE_APPLY" });
   } catch {
     /* tab may not allow the script */
   }
@@ -730,8 +794,8 @@ async function importSettingsFile(file, okKey) {
     }
     state = applied.state;
     await persist();
-    if (openFolderId) showFolder(openFolderId);
-    else showFolders();
+    if (openFolderId) showFolder(openFolderId, { keepForm: true, enter: false });
+    else showFolders({ leave: false });
     showToast(t(okKey));
   } catch {
     alert(t("importBadJson"));
@@ -758,7 +822,11 @@ document.getElementById("import-match-file").addEventListener("change", async (e
   if (file) await importSettingsFile(file, "importMatchOk");
 });
 
-TextReplaceStore.getState().then((loaded) => {
+Promise.all([TextReplaceStore.getState(), TextReplaceStore.getActiveFolderId()]).then(([loaded, activeId]) => {
   state = loaded;
-  showFolders();
+  if (activeId && folderById(activeId)) showFolder(activeId);
+  else {
+    if (activeId) void TextReplaceStore.setActiveFolderId(null);
+    showFolders({ leave: false });
+  }
 });

@@ -1,6 +1,7 @@
 (function (root) {
   const KEY = "textReplaceState";
   const LEGACY_KEY = "pairs";
+  const ACTIVE_KEY = "textReplaceActiveFolder";
 
   function uid() {
     return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -312,6 +313,29 @@
     });
   }
 
+  function getActiveFolderId() {
+    return new Promise((resolve) => {
+      if (typeof chrome === "undefined" || !chrome.storage?.local) {
+        resolve(null);
+        return;
+      }
+      chrome.storage.local.get({ [ACTIVE_KEY]: null }, (data) => {
+        resolve(data[ACTIVE_KEY] || null);
+      });
+    });
+  }
+
+  function setActiveFolderId(id) {
+    const value = id || null;
+    return new Promise((resolve) => {
+      if (typeof chrome === "undefined" || !chrome.storage?.local) {
+        resolve(value);
+        return;
+      }
+      chrome.storage.local.set({ [ACTIVE_KEY]: value }, () => resolve(value));
+    });
+  }
+
   function pairsForFolder(state, folder) {
     if (!folder) return [];
     const match = resolveMatch(state, folder);
@@ -407,6 +431,8 @@
     migrate,
     getState,
     setState,
+    getActiveFolderId,
+    setActiveFolderId,
     allPairs,
     pairsForFolder,
     normalizeMode,

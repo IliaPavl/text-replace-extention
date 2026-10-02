@@ -7,7 +7,7 @@
         scanPage: "Сканировать страницу",
         scan: "Сканировать",
         foldersHint:
-          "Каждая папка — свой набор замен. Автозамена (по умолчанию включена в папке) применяет её пары на страницах сама. Сканировать и «Как было» работают только внутри папки.",
+          "Каждая папка — свой набор замен. Пока папка открыта и автозамена включена, её пары применяются сами, в том числе после добавления и удаления. Кнопка «← Папки» выключает автозамену и возвращает исходный текст.",
         folderNamePlaceholder: "Название папки",
         createFolder: "Создать",
         noFolders: "Папок нет — создай первую.",
@@ -65,7 +65,7 @@
         autoApply: "Автозамена",
         autoOff: "авто выкл",
         helpAuto:
-          "Если включено, пары этой папки подменяются на страницах сами.\n\nВыключи — замены сработают только по «Сканировать» в этой папке.\n\n«Как было» откатывает текст на текущей вкладке. Пока не нажмёшь «Сканировать» или снова не включишь авто, замены не вернутся.",
+          "Пока вы в этой папке, включённая автозамена держит на странице именно её пары. Новые и удалённые пары применяются сразу.\n\nВыключите переключатель — замены только по «Сканировать».\n\n«← Папки» выключает автозамену и возвращает исходный текст.\n\n«Как было» откатывает текущую вкладку, пока пары снова не изменятся или вы не нажмёте «Сканировать».",
         brand: "Замены",
         openFolder: "Открыть",
         searchPairs: "Поиск замен",
@@ -135,7 +135,7 @@
         jsonCommentFolders: "Папки с парами замен",
         jsonCommentPairs: "Пары: from → to",
         jsonCommentMode: "fuzzy = сопоставление, exact = точная строка",
-        jsonCommentAutoApply: "Самой применять пары этой папки на страницах",
+        jsonCommentAutoApply: "Применять пары, пока эта папка открыта",
         jsonCommentMatchInherit: "true = брать общие правила языка",
         jsonCommentMatch: "Свои правила папки, если inherit выключен",
         jsonCommentEndings: "Окончания, которые отбрасываются перед сравнением",
@@ -158,7 +158,7 @@
         scanPage: "Scan page",
         scan: "Scan",
         foldersHint:
-          "Each folder has its own replacements. Auto-replace (on by default in a folder) applies its pairs by itself. Scan and Restore work only inside a folder.",
+          "Each folder has its own replacements. While a folder is open and auto-replace is on, its pairs apply by themselves, including after adds and deletes. Back to Folders turns auto-replace off and restores the original text.",
         folderNamePlaceholder: "Folder name",
         createFolder: "Create",
         noFolders: "No folders yet — create one.",
@@ -216,7 +216,7 @@
         autoApply: "Auto-replace",
         autoOff: "auto off",
         helpAuto:
-          "When on, this folder’s pairs are applied on pages by themselves.\n\nTurn it off to apply them only with Scan inside this folder.\n\nRestore rolls the current tab back. Replacements stay off until you Scan or turn auto back on.",
+          "While you are in this folder, auto-replace keeps this folder’s pairs on the page. Added and deleted pairs apply immediately.\n\nTurn the switch off to apply them only with Scan.\n\nBack to Folders turns auto-replace off and restores the original text.\n\nRestore rolls the current tab back until pairs change again or you press Scan.",
         brand: "Replace",
         openFolder: "Open",
         searchPairs: "Search replacements",
@@ -286,7 +286,7 @@
         jsonCommentFolders: "Folders with replacement pairs",
         jsonCommentPairs: "Pairs: from → to",
         jsonCommentMode: "fuzzy = matching, exact = literal string",
-        jsonCommentAutoApply: "Apply this folder’s pairs on pages automatically",
+        jsonCommentAutoApply: "Apply pairs while this folder is open",
         jsonCommentMatchInherit: "true = use shared rules for the current language",
         jsonCommentMatch: "Folder-specific rules if inherit is off",
         jsonCommentEndings: "Suffixes stripped before compare",

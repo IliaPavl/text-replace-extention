@@ -3,7 +3,9 @@ const SKIP = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEXTAREA", "INPUT", "SELEC
 let pairs = [];
 let applying = false;
 let suppressed = false;
+let pinned = false;
 let debounceTimer = 0;
+let refreshSeq = 0;
 let observer = null;
 const snapshots = [];
 let titleOriginal = null;
@@ -13,21 +15,13 @@ function remember(node, value) {
   snapshots.push({ node, original: value });
 }
 
-async function loadAutoPairs() {
+async function loadFolder(folderId) {
   const state = await TextReplaceStore.getState();
-  pairs = TextReplaceStore.allPairs(state, { autoOnly: true });
-  return pairs;
-}
-
-async function loadScanPairs(folderId) {
-  const state = await TextReplaceStore.getState();
-  const auto = TextReplaceStore.allPairs(state, { autoOnly: true });
-  const folder = (state.folders || []).find((f) => f.id === folderId);
-  const extra = TextReplaceStore.pairsForFolder(state, folder);
-  const byId = new Map();
-  for (const pair of [...auto, ...extra]) byId.set(pair.id, pair);
-  pairs = [...byId.values()];
-  return pairs;
+  const folder = (state.folders || []).find((f) => f.id === folderId) || null;
+  return {
+    folder,
+    pairs: folder ? TextReplaceStore.pairsForFolder(state, folder) : [],
+  };
 }
 
 function shouldSkip(node) {
@@ -58,22 +52,46 @@ function walkTextNodes(root, out) {
   }
 }
 
+function restoreOriginals() {
+  for (const snap of snapshots) {
+    if (!snap.node || !snap.node.isConnected) continue;
+    if (snap.node.nodeValue !== snap.original) snap.node.nodeValue = snap.original;
+  }
+  if (titleOriginal != null && document.title !== titleOriginal) document.title = titleOriginal;
+}
+
+function writeReplacements() {
+  if (!pairs.length) return;
+  const nodes = [];
+  walkTextNodes(document.body || document.documentElement, nodes);
+  for (const node of nodes) {
+    remember(node, node.nodeValue);
+    const next = TextReplaceMatch.applyPairsToString(node.nodeValue, pairs);
+    if (next !== node.nodeValue) node.nodeValue = next;
+  }
+  if (document.title) {
+    if (titleOriginal == null) titleOriginal = document.title;
+    const nextTitle = TextReplaceMatch.applyPairsToString(document.title, pairs);
+    if (nextTitle !== document.title) document.title = nextTitle;
+  }
+}
+
 function applyToDocument() {
   if (applying || suppressed || !pairs.length) return;
   applying = true;
   try {
-    const nodes = [];
-    walkTextNodes(document.body || document.documentElement, nodes);
-    for (const node of nodes) {
-      remember(node, node.nodeValue);
-      const next = TextReplaceMatch.applyPairsToString(node.nodeValue, pairs);
-      if (next !== node.nodeValue) node.nodeValue = next;
-    }
-    if (document.title) {
-      if (titleOriginal == null) titleOriginal = document.title;
-      const nextTitle = TextReplaceMatch.applyPairsToString(document.title, pairs);
-      if (nextTitle !== document.title) document.title = nextTitle;
-    }
+    writeReplacements();
+  } finally {
+    applying = false;
+  }
+}
+
+function reapplyLive() {
+  applying = true;
+  suppressed = false;
+  try {
+    restoreOriginals();
+    writeReplacements();
   } finally {
     applying = false;
   }
@@ -83,16 +101,37 @@ function restoreDocument() {
   applying = true;
   suppressed = true;
   try {
-    for (const snap of snapshots) {
-      if (!snap.node || !snap.node.isConnected) continue;
-      if (snap.node.nodeValue !== snap.original) snap.node.nodeValue = snap.original;
-    }
-    if (titleOriginal != null && document.title !== titleOriginal) {
-      document.title = titleOriginal;
-    }
+    restoreOriginals();
   } finally {
     applying = false;
   }
+}
+
+async function refreshFromStorage() {
+  const seq = ++refreshSeq;
+  const activeId = await TextReplaceStore.getActiveFolderId();
+  if (seq !== refreshSeq) return;
+  if (!activeId) {
+    pinned = false;
+    pairs = [];
+    restoreDocument();
+    return;
+  }
+  const loaded = await loadFolder(activeId);
+  if (seq !== refreshSeq) return;
+  if (!loaded.folder) {
+    pinned = false;
+    pairs = [];
+    restoreDocument();
+    return;
+  }
+  pairs = loaded.pairs;
+  const auto = loaded.folder.autoApply !== false;
+  if (!auto && !pinned) {
+    restoreDocument();
+    return;
+  }
+  reapplyLive();
 }
 
 function scheduleApply() {
@@ -120,8 +159,7 @@ function startObserver() {
 }
 
 async function boot() {
-  await loadAutoPairs();
-  applyToDocument();
+  await refreshFromStorage();
   startObserver();
 }
 
@@ -133,32 +171,36 @@ if (document.readyState === "loading") {
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "local") return;
-  if (!changes.textReplaceState && !changes.pairs) return;
-  loadAutoPairs().then(() => {
-    if (!suppressed) scheduleApply();
-  });
+  if (!changes.textReplaceState && !changes.textReplaceActiveFolder && !changes.pairs) return;
+  refreshFromStorage();
 });
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type === "SCAN_NOW") {
-    suppressed = false;
-    loadScanPairs(msg.folderId).then(() => {
-      applyToDocument();
+    loadFolder(msg.folderId).then((loaded) => {
+      pairs = loaded.pairs;
+      pinned = loaded.folder?.autoApply === false;
+      reapplyLive();
       sendResponse({ ok: true });
     });
     return true;
   }
-  if (msg?.type === "RESTORE") {
+  if (msg?.type === "RESTORE" || msg?.type === "PAUSE_APPLY") {
+    pinned = false;
     restoreDocument();
     sendResponse({ ok: true, restored: true });
     return true;
   }
-  if (msg?.type === "RESUME_APPLY") {
-    suppressed = false;
-    loadAutoPairs().then(() => {
-      applyToDocument();
-      sendResponse({ ok: true });
-    });
+  if (msg?.type === "RESUME_APPLY" || msg?.type === "ENTER_FOLDER" || msg?.type === "REFRESH_FOLDER") {
+    if (msg.type === "RESUME_APPLY") pinned = false;
+    refreshFromStorage().then(() => sendResponse({ ok: true }));
+    return true;
+  }
+  if (msg?.type === "LEAVE_FOLDER") {
+    pinned = false;
+    pairs = [];
+    restoreDocument();
+    sendResponse({ ok: true });
     return true;
   }
   return false;
