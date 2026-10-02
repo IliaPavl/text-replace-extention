@@ -1,18 +1,26 @@
-# URL для Chrome Web Store
+# Почему 404 и что нажать
 
-Ссылки вида `github.com/.../blob/main/store/privacy.html` кабинет **не принимает**: это страница GitHub, не отдельный сайт политики.
+Сайт ещё не опубликован. Репозиторий есть, папка `docs/` есть, но GitHub Pages выключен (API `/pages` отвечает 404). Пока так, `*.github.io/...` всегда будет «There isn't a GitHub Pages site here».
 
-После пуша папок `docs/` и `.github/workflows/pages.yml` в репозиторий:
+## Включить сайт (без GitHub Actions)
 
-1. GitHub → репозиторий → **Settings → Pages**
-2. Source: **GitHub Actions**
-3. Подожди минуту, пока workflow *GitHub Pages* станет зелёным
-4. Проверь в обычном браузере (без VPN-логина), что страницы открываются
+1. Открой https://github.com/IliaPavl/text-replace-extention/settings/pages  
+   (нужен вход владельцем репозитория.)
+2. **Build and deployment → Source** выбери **Deploy from a branch** (не GitHub Actions).
+3. Branch: **main**, папка: **/docs**.
+4. Save.
+5. Подожди 1–3 минуты. На той же странице Settings → Pages появится зелёная плашка с адресом.
 
-Затем в кабинете Chrome:
+Готовый адрес проекта (с именем репозитория в конце):
 
 - Главная: https://iliapavl.github.io/text-replace-extention/
-- Политика конфиденциальности: https://iliapavl.github.io/text-replace-extention/privacy.html
-- Служба поддержки: https://iliapavl.github.io/text-replace-extention/support.html
+- Политика: https://iliapavl.github.io/text-replace-extention/privacy.html
+- Поддержка: https://iliapavl.github.io/text-replace-extention/support.html
+  (на странице только почта: liveproger234@gmail.com)
 
-Пока Pages не включён, эти адреса будут 404 — кабинет снова напишет «URL недоступен».
+В кабинете Chrome, если есть отдельное поле email поддержки, тоже: liveproger234@gmail.com.
+Поле «Support URL» всё равно должно быть HTTPS-страницей, не mailto.
+
+Проверь их в обычном браузере. Если снова 404 — либо прошло меньше минуты, либо открыт адрес без `/text-replace-extention/` (это уже другой сайт).
+
+Потом эти три URL вставь в кабинет Chrome.

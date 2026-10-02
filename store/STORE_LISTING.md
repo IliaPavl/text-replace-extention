@@ -49,7 +49,7 @@ Replacements must run on whatever site you use as a reader (web novel sites, tra
 
 ## Support / privacy
 
-Host store/privacy.html on a public URL and paste that URL into the Privacy policy field. Add your support email in the listing.
+Host store/privacy.html on a public URL and paste that URL into the Privacy policy field. Support: liveproger234@gmail.com (page: GitHub Pages support.html).
 
 ## Store images
 
